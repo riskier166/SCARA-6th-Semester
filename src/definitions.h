@@ -11,18 +11,30 @@
 #include <PID.h>
 #include <SimpleGPIO.h>
 
-//PID DC1 help stuff
-PID control;
-float gains[3];float reference=0;
-float measurement;float error; float u;
-
-// // // Motor DC1 Stuff
+/////////////////////  ELBOW DC1 Stuff  ///////////////////////////
 //HBridge Stuff
-uint8_t PWM_PIN[2] = {32, 33};uint8_t PWMCH[2] = {0, 1}; //PWM Channels
-HBridge MOTOR_PWM; //HBridge class instance
+uint8_t ELBOW_PINS[2] = {32, 33},ELBOW_PWMCH[2] = {0, 1}; 
+HBridge Elbow; //HBridge class instance
 //Quadrature Encoder Stuff
-QuadratureEncoder encoder;
-uint8_t EncIN[] = {36, 39}; const float degrees_per_edge = 0.36437;
+QuadratureEncoder ElbowEncoder;
+uint8_t ENC_ELBOW_PINS[] = {36, 39}; const float degrees_per_edge = 0.36437;
+//PID DC1 help stuff
+PID ElbowControl;
+float elbow_gains[3];float elbow_reference=0;
+float elbow_measurement;float elbow_error; float elbow_u;
+
+/////////////////////  WRIST DC1 Stuff  ///////////////////////////
+//HBridge Stuff
+uint8_t WRIST_PINS[2] = {25, 26},WRIST_PWMCH[2] = {2, 3}; 
+HBridge Wrist; //HBridge class instance
+//Quadrature Encoder Stuff
+QuadratureEncoder WristEncoder;
+uint8_t ENC_Wrist_PINS[] = {35, 34};
+//PID DC1 help stuff
+PID WristControl;
+float wrist_gains[3];float wrist_reference=0;
+float wrist_measurement;float wrist_error; float wrist_u;
+
 
 // while Timer Stuff
 SimpleTimer timer;
