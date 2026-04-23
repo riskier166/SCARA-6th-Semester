@@ -28,12 +28,12 @@ enum MODE{
 MODE current_mode;
 
 //HBridge Stuff
-uint8_t PWM_PIN[2] = {25, 26};uint8_t PWMCH[2] = {0, 1}; //PWM Channels
+uint8_t PWM_PIN[2] = {32, 33};uint8_t PWMCH[2] = {0, 1}; //PWM Channels
 HBridge MOTOR_PWM; //HBridge class instance
 
 //Quadrature Encoder Stuff
 QuadratureEncoder encoder;
-uint8_t EncIN[] = {35, 34}; const float degrees_per_edge = 0.36437;
+uint8_t EncIN[] = {36, 39}; const float degrees_per_edge = 0.36437;
 
 // while Timer Stuff
 SimpleTimer timer;

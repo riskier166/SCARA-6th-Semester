@@ -16,15 +16,10 @@ extern "C" void app_main()
         {
             measurement = encoder.getAngle();
             error = reference - measurement;
-            u = fabs(control.calc(error));
+            u = control.calc(error);
             if (u>95) u=95;
-            else if (u<0) u=0; 
+            if (u<-95) u=-95;
             MOTOR_PWM.setSpeed(u);
-
-            if (fabs(error) <= 0 ) 
-            {
-                measurement = 0; reference = 0;
-            }
 
             message_length = uart.available();
             if (message_length)
