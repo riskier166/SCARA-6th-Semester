@@ -10,6 +10,7 @@
 #include "esp_task_wdt.h" //Watch Dog 
 #include "PID.h"
 #include "math.h"
+#include "I2CBus.h"
 
 //PID stuff
 PID control;
@@ -34,6 +35,10 @@ HBridge MOTOR_PWM; //HBridge class instance
 //Quadrature Encoder Stuff
 QuadratureEncoder encoder;
 uint8_t EncIN[] = {36, 39}; const float degrees_per_edge = 0.36437;
+
+///////////////// STEPPER MOTOR STUFF //////////////////////////////////
+// Absolute encoder (12c) stuff
+I2CBus i2c(I2C_NUM_0, GPIO_NUM_21, GPIO_NUM_22, 400000);
 
 // while Timer Stuff
 SimpleTimer timer;

@@ -10,26 +10,19 @@ extern "C" void app_main()
     MOTOR_PWM.setup(PWM_PIN, PWMCH);
     timer.setup(timerISR, "MainTimer");
     timer.startPeriodic(dt_us);
+    i2c.init();
     while (1)
     {
         if (timer.interruptAvailable())
         {
-            measurement = encoder.getAngle();
-            error = reference - measurement;
-            u = control.calc(error);
-            if (u>95) u=95;
-            if (u<-95) u=-95;
-            MOTOR_PWM.setSpeed(u);
-
-            message_length = uart.available();
-            if (message_length)
+            if (i2c.deviceAvailable(0x36))
             {
-                uart.read(buffer, message_length); // Echo back
-                sscanf(buffer, "%f,%f,%f,%f\n", &gains[0], &gains[1], &gains[2], &reference);
-                // sscanf(buffer, "%f,%f,%f,%f\n", &gains[0], &gains[1], &gains[2], &reference);
-                control.setup(gains, dt_us / 1000000.0f);
+                ESP_LOGI("MAIN", "AS5600 detected");
             }
-            printf("U: %.2f, Measured position: %.2f, desired angle: %.2f, error: %.2f\n", u, measurement, reference, error);
+            else
+            {
+                ESP_LOGE("MAIN", "AS5600 not detected");
+            }
         }
     }
 }
