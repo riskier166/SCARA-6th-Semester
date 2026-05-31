@@ -14,6 +14,8 @@
 #include "AS5600.h"
 #include "SimpleGPIO.h"
 
+#define DEG_PER_EDGE 0.36437
+
 //PID stuff
 PID control;
 float gains[3];
@@ -22,7 +24,7 @@ int mode;
 float measurement;float error; float u;
 
 // Help variables 
-float speed = 1000.0,getSpeed,getAngle; 
+volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
 
 enum MODE{
     NOTHING = 0,
@@ -37,7 +39,7 @@ uint8_t ElbowPIN[2] = {32, 33};uint8_t ElbowPWMCH[2] = {0, 1}; //PWM Channels
 HBridge ElbowDCM; //HBridge class instance
 //Quadrature Encoder Stuff
 QuadratureEncoder ElbowEncoder;
-uint8_t ElbowEncPIN[] = {39,36}; const float degrees_per_edge = 0.36437;
+uint8_t ElbowEncPIN[] = {39,36};
 // Calibration Limit Switch Stuff 
 SimpleGPIO Calibration; const uint8_t CalibPin = 27;
 
@@ -76,13 +78,34 @@ SimpleGPIO UpDown_LS; const uint8_t UpDownPin = 4;
 ///////////////////// GRIPPER  stuff //////////////////////////////////
 SimpleGPIO Gripper; const uint8_t GripperPin = 13;
 
-// while Timer Stuff
-SimpleTimer timer;
-bool flag = false;
-uint64_t dt_us = 10000; // 10 ms = 10000 us
+// while Timer Actuation Stuff
+SimpleTimer timer1;
+bool flag1 = false;
+uint64_t dt_us1 = 1000; // 10 ms = 10000 us
+
+// while Timer Prints Stuff
+SimpleTimer timer2;
+bool flag2 = false;
+uint64_t dt_us2 = 10000; // 10 ms = 10000 us
 
 // UART Stuff
 SimpleUART uart(115200); //UART class
 char buffer[30];int message_length;
+
+// Reset Quadrature function 
+float wrapAngle360(float angle)
+{
+    while (angle >= 360.0f)
+    {
+        angle -= 360.0f;
+    }
+
+    while (angle <= -360.0f)
+    {
+        angle += 360.0f;
+    }
+
+    return angle;
+}
 
 #endif // __DEFINITIONS_H__
