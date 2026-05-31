@@ -1,182 +1,204 @@
-#include <AS5600.h>
+#include "AS5600.h"
 
-AS5600::AS5600() : _I2C_ESP(nullptr), ADDRESS(0)
+static const char *TAG = "AS5600";
+
+// AS5600 registers
+static constexpr uint8_t RAW_ANGLE_HIGH_REG = 0x0C;
+static constexpr uint8_t RAW_ANGLE_LOW_REG  = 0x0D;
+
+AS5600::AS5600(I2CBus *i2c_bus)
+    : _i2c_bus(i2c_bus),
+      _device_handle(nullptr),
+      _angle_deg(0.0f),
+      _angle_rad(0.0f),
+      _previous_angle_deg(0.0f),
+      _angular_velocity_deg_s(0.0f),
+      _angular_velocity_rad_s(0.0f),
+      _previous_time_us(0)
 {
 }
 
-AS5600::~AS5600()
+esp_err_t AS5600::init()
 {
-}
-
-void AS5600::setup(SimpleI2C &i2c, uint8_t addr)
-{
-    _I2C_ESP = &i2c;
-    ADDRESS = addr;
-
-    _I2C_ESP->setup_device(ADDRESS);
-}
-
-uint8_t AS5600::readMagnet()
-{
-    magnet_status = read8(STATUS);
-    return magnet_status;
-}
-
-uint8_t AS5600::MagnetDetection()
-{
-
-    magnet_status = readMagnet();
-    vTaskDelay(pdMS_TO_TICKS(100)); // Delay to prevent excessive I2C reads, adjust as needed
-    if (magnet_status & 0x20)
+    if (_i2c_bus == nullptr)
     {
-        // printf("Magnet detected: %d\n", magnet_status);
-        status = MD;
+        ESP_LOGE(TAG, "I2C bus is null");
+        return ESP_ERR_INVALID_ARG;
     }
 
-    else if (magnet_status & 0x10)
+    if (!_i2c_bus->deviceAvailable(AS5600_ADDRESS))
     {
-        printf("Magnet too weak - decrease distance or use stronger magnet: %d\n", magnet_status);
-        status = ML;
+        ESP_LOGE(TAG, "AS5600 not detected at address 0x%02X", AS5600_ADDRESS);
+        return ESP_ERR_NOT_FOUND;
     }
 
-    else if (magnet_status & 0x08)
+    esp_err_t err = _i2c_bus->addDevice(AS5600_ADDRESS, &_device_handle);
+
+    if (err != ESP_OK)
     {
-        printf("Magnet too strong - increase distance or use weaker magnet: %d\n", magnet_status);
-        status = MH;
+        ESP_LOGE(TAG, "Failed to add AS5600 device");
+        return err;
     }
 
-    else
+    uint16_t raw_angle = 0;
+    err = readRawAngle(&raw_angle);
+
+    if (err != ESP_OK)
     {
-        printf("No magnet detected: %d\n", magnet_status);
-        status = NO_Magnet;
+        ESP_LOGE(TAG, "Failed to read initial angle");
+        return err;
     }
 
-    switch (status)
-    {
-    case MD:
-        printf("Magnet detected: %d\n", magnet_status);
-        return MD;
-    case ML:
-        printf("Magnet too weak - decrease distance or use stronger magnet: %d\n", magnet_status);
-        return ML;
-    case MH:
-        printf("Magnet too strong - increase distance or use weaker magnet: %d\n", magnet_status);
-        return MH;
-    case NO_Magnet:
-        printf("No magnet detected: %d\n", magnet_status);
-        return NO_Magnet;
+    _angle_deg = (raw_angle * 360.0f) / 4096.0f;
+    _angle_rad = _angle_deg * static_cast<float>(M_PI) / 180.0f;
 
-    default:
-        return NO_Magnet;
-    }
+    _previous_angle_deg = _angle_deg;
+    _previous_time_us = esp_timer_get_time();
+
+    ESP_LOGI(TAG, "AS5600 initialized successfully");
+
+    return ESP_OK;
 }
 
-void AS5600::correctAngle() //-15 --> 345
+esp_err_t AS5600::readRawAngle(uint16_t *raw_angle)
 {
-    corrected_Angle = (degAngle - start_Angle);
-    if (corrected_Angle < 0)
+    if (_device_handle == nullptr || raw_angle == nullptr)
     {
-        corrected_Angle = corrected_Angle + 360;
-    }
-}
-
-void AS5600::quadrantAngle()
-{
-    /*
-    //Quadrants
-    4 | 1
-    -----
-    3 | 2
-    */
-    // quadrant detection can be changed from every 90 to every 45 degrees
-    if (degAngle >= 0 && degAngle < 90)
-        quadrant = 1;
-    else if (degAngle >= 90 && degAngle < 180)
-        quadrant = 2;
-    else if (degAngle >= 180 && degAngle < 270)
-        quadrant = 3;
-    else
-        quadrant = 4;
-
-    if (quadrant != prev_Quadrant)
-    {
-        if (quadrant == 1 && prev_Quadrant == 4)
-            number_of_turns++;
-        else if (quadrant == 4 && prev_Quadrant == 1)
-            number_of_turns--;
-
-        prev_Quadrant = quadrant;
-    }
-}
-
-uint16_t AS5600::readRawAngle()
-{
-    read16(RAW_ANGLE, rawAngle);
-    degAngle = (rawAngle * 360.0) / resolution;
-
-    correctAngle();
-    quadrantAngle();
-
-    return rawAngle;
-}
-
-float AS5600::getTotalAngle()
-{
-    totalAngle = corrected_Angle + (number_of_turns * 360);
-    current_Angle = totalAngle;
-    return totalAngle;
-}
-
-float AS5600::getSpeed()
-{
-    _current = esp_timer_get_time();
-    if (_prev == 0)
-    {
-        _prev = _current;
-        prev_Angle = current_Angle;
-        return 0.0f;
+        return ESP_ERR_INVALID_ARG;
     }
 
-    delta_Angle = current_Angle - prev_Angle;
-    _dt_us = _current - _prev;
+    uint8_t data[2] = {0};
 
-    if (fabs(delta_Angle) > 0.0001 && _dt_us > 0)
+    esp_err_t err = _i2c_bus->readRegister(
+        _device_handle,
+        RAW_ANGLE_HIGH_REG,
+        data,
+        2
+    );
+
+    if (err != ESP_OK)
     {
-        _speed = (delta_Angle * 1000000.0f) / _dt_us;
+        ESP_LOGE(TAG, "Failed to read raw angle: %s", esp_err_to_name(err));
+        return err;
     }
-    else
+
+    *raw_angle = ((data[0] & 0x0F) << 8) | data[1];
+
+    return ESP_OK;
+}
+
+esp_err_t AS5600::readAngleDegrees(float *angle_deg)
+{
+    if (angle_deg == nullptr)
     {
-        _speed = 0.0f;
+        return ESP_ERR_INVALID_ARG;
     }
 
-    prev_Angle = current_Angle;
-    _prev = _current;
+    uint16_t raw_angle = 0;
 
-    return _speed;
+    esp_err_t err = readRawAngle(&raw_angle);
+
+    if (err != ESP_OK)
+    {
+        return err;
+    }
+
+    *angle_deg = (raw_angle * 360.0f) / 4096.0f;
+
+    return ESP_OK;
 }
 
-void AS5600::write8(uint8_t reg, uint8_t value)
+esp_err_t AS5600::readAngleRadians(float *angle_rad)
 {
-    uint8_t data[] = {reg, value};
-    _I2C_ESP->write(ADDRESS, data, 2);
+    if (angle_rad == nullptr)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    float angle_deg = 0.0f;
+
+    esp_err_t err = readAngleDegrees(&angle_deg);
+
+    if (err != ESP_OK)
+    {
+        return err;
+    }
+
+    *angle_rad = angle_deg * static_cast<float>(M_PI) / 180.0f;
+
+    return ESP_OK;
 }
 
-void AS5600::read16(uint8_t reg, uint16_t &value)
+esp_err_t AS5600::update()
 {
-    uint8_t buffer[2];
-    _I2C_ESP->master_read_write(ADDRESS, &reg, 1, buffer, 2);
-    value = (buffer[0] << 8) | buffer[1];
+    float current_angle_deg = 0.0f;
+
+    esp_err_t err = readAngleDegrees(&current_angle_deg);
+
+    if (err != ESP_OK)
+    {
+        return err;
+    }
+
+    int64_t current_time_us = esp_timer_get_time();
+
+    float dt = (current_time_us - _previous_time_us) / 1000000.0f;
+
+    if (dt <= 0.0f)
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    float delta_angle = calculateDeltaAngle(
+        current_angle_deg,
+        _previous_angle_deg
+    );
+
+    _angular_velocity_deg_s = delta_angle / dt;
+    _angular_velocity_rad_s = _angular_velocity_deg_s *
+                              static_cast<float>(M_PI) / 180.0f;
+
+    _angle_deg = current_angle_deg;
+    _angle_rad = _angle_deg * static_cast<float>(M_PI) / 180.0f;
+
+    _previous_angle_deg = current_angle_deg;
+    _previous_time_us = current_time_us;
+
+    return ESP_OK;
 }
 
-uint8_t AS5600::read8(uint8_t reg)
+float AS5600::getAngleDegrees()
 {
-    uint8_t value = 0;
+    return _angle_deg;
+}
 
-    // 1. Escribes el registro que quieres leer
-    _I2C_ESP->write(ADDRESS, &reg, 1);
+float AS5600::getAngleRadians()
+{
+    return _angle_rad;
+}
 
-    // 2. Lees el valor
-    _I2C_ESP->read(ADDRESS, &value, 1);
+float AS5600::getAngularVelocityDegS()
+{
+    return _angular_velocity_deg_s;
+}
 
-    return value;
+float AS5600::getAngularVelocityRadS()
+{
+    return _angular_velocity_rad_s;
+}
+
+float AS5600::calculateDeltaAngle(float current_angle, float previous_angle)
+{
+    float delta = current_angle - previous_angle;
+
+    if (delta > 180.0f)
+    {
+        delta -= 360.0f;
+    }
+    else if (delta < -180.0f)
+    {
+        delta += 360.0f;
+    }
+
+    return delta;
 }

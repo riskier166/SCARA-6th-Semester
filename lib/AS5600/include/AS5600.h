@@ -1,83 +1,46 @@
-#ifndef __AS5600_H__
-#define __AS5600_H__
+#ifndef AS5600_H
+#define AS5600_H
 
-#include <SimpleI2C.h>
-#include <esp_timer.h>
-#include <math.h>
+#pragma once
 
-enum MagnetStatus
-{
-    MD = 0,
-    ML = 1,
-    MH = 2,
-    NO_Magnet = 3,
-};
+#include "I2CBus.h"
+#include "esp_timer.h"
+#include <cmath>
 
-
-enum Address
-{
-    ZMCO = 0x00,
-    ZPOS = 0x01,
-    MPOS = 0x03,
-    MANG = 0x05,
-    CONF = 0x07,
-    RAW_ANGLE = 0x0C,
-    ANGLE = 0x0E,
-    STATUS = 0x0B
-};
+#define AS5600_ADDRESS 0x36
 
 class AS5600
 {
 public:
-    AS5600();
-    ~AS5600();
-    void setup(SimpleI2C &i2c, uint8_t addr = 0x36);
-    uint8_t readMagnet();
-    uint8_t MagnetDetection();
-    uint16_t readRawAngle();
-    float getTotalAngle();
-    float getSpeed();
+    AS5600(I2CBus *i2c_bus);
 
-    // get velocity()
-    // getturns()
+    esp_err_t init();
+
+    esp_err_t readRawAngle(uint16_t *raw_angle);
+    esp_err_t readAngleDegrees(float *angle_deg);
+    esp_err_t readAngleRadians(float *angle_rad);
+
+    esp_err_t update();
+
+    float getAngleDegrees();
+    float getAngleRadians();
+    float getAngularVelocityDegS();
+    float getAngularVelocityRadS();
 
 private:
-    static constexpr uint8_t COMMAND_BIT = 0x80;
+    I2CBus *_i2c_bus;
+    i2c_master_dev_handle_t _device_handle;
 
-    void write8(uint8_t reg, uint8_t value);
-    void read16(uint8_t reg, uint16_t &value);
-    uint8_t read8(uint8_t reg);
+    float _angle_deg;
+    float _angle_rad;
 
-    void correctAngle();
-    void quadrantAngle();
+    float _previous_angle_deg;
+    float _angular_velocity_deg_s;
+    float _angular_velocity_rad_s;
 
-    uint8_t magnet_status;
-    MagnetStatus status;
-    SimpleI2C *_I2C_ESP;
-    uint8_t ADDRESS;
+    int64_t _previous_time_us;
 
-    uint64_t _current, _prev = 0;
-    uint64_t _dt_us = 0;
-    uint64_t _timeout_us = 70000;
-    float _speed = 0;
-
-#pragma region Angle reading and calculation variables
-    uint16_t rawAngle;
-    float degAngle;
-    int resolution = 4096; // 12 bits
-    float corrected_Angle;
-    float start_Angle;
-    float totalAngle;      // absolute displacement
-    float current_Angle;
-    float prev_Angle = 0;
-    float delta_Angle;
-#pragma endregion
-
-#pragma region Quadrant detection variables
-    int quadrant;      // 1,2,3,4
-    int prev_Quadrant; // 1,2,3,4
-    float number_of_turns;
-#pragma endregion
+    float calculateDeltaAngle(float current_angle, float previous_angle);
 };
 
-#endif // __AS5600_H__
+#endif
