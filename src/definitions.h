@@ -13,19 +13,26 @@
 #include "I2CBus.h"
 #include "AS5600.h"
 #include "SimpleGPIO.h"
+#include "SimplePWM.h"
 
 #define DEG_PER_EDGE 0.33445f
 
-//PID stuff
-PID control;
-float gains[3];
-float reference=0;
-int mode;
-float measurement;float error; float u;
+/////////////////////// Hip PID stuff///////////////////////////////////
+PID HipControl;
+float HipGains[3] = {10.0f, 2.0f, 2.5f}; // Kp, Ki, Kd
+float HipReference = 0.0f;     
+float HipMeasurement = 0.0f;   
+float HipError = 0.0f;
+float Hip_u = 0.0f;     
+// Stepper position control limits
+const float HIP_TOLERANCE_DEG = 1.0f; // init: 1
+const uint32_t HIP_MIN_FREQ = 20;  // init: 100
+const uint32_t HIP_MAX_FREQ = 3000;
 
 // Help variables 
 volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
-float frequency = 1000; // Hip 
+uint32_t frequency = 1000;
+static uint32_t lastHipFrequency;
 
 enum MODE{
     NOTHING = 0,
@@ -82,7 +89,7 @@ SimpleGPIO Gripper; const uint8_t GripperPin = 13;
 // while Timer Actuation Stuff
 SimpleTimer timer1;
 bool flag1 = false;
-uint64_t dt_us1 = 1000; // 10 ms = 10000 us
+uint64_t dt_us1 = 1000; // 1 ms = 1000 us
 
 // while Timer Prints Stuff
 SimpleTimer timer2;
@@ -107,6 +114,20 @@ float wrapAngle360(float angle)
     }
 
     return angle;
+}
+
+// Para evitar frecuencias negativas:
+float shortestAngleError(float reference, float measurement)
+{
+    float error = reference - measurement;
+
+    while (error > 180.0f)
+        error -= 360.0f;
+
+    while (error < -180.0f)
+        error += 360.0f;
+
+    return error;
 }
 
 #endif // __DEFINITIONS_H__

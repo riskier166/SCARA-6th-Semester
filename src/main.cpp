@@ -1,32 +1,64 @@
 #include <definitions.h>
 
 static void IRAM_ATTR timerISR1(void *arg), timerISR2(void *arg);
-void setups();
+void setups(), HipPositionControl(float reference);
 
 esp_err_t create_tasks();
 
 void actuation(void *arg)
 {
+    lastHipFrequency = 0;
+
+    Step1.setDuty(0);  // Hip stepper initially stopped
+    Step2.setDuty(50); // UpDown stepper if you want it active
+
+    HipPositionControl(AbsEnc.getAngleDegrees());
+
     while (1)
     {
         if (timer1.interruptAvailable())
         {
-            // DCM
-            WristDCM.setSpeed(wirstSpeed);
-            // Activate HIP Stepper
-            Step1.setDuty(50);
-            Step1.setFrequency(frequency);
-            Dir1.set(1);
-            // Activate UpDown Stepper
-            Step2.setDuty(50);
-            Dir2.set(1);
-
             message_length = uart.available();
-            if (message_length)
+
+            if (message_length > 0)
             {
-                uart.read(buffer, message_length); // Echo back
-                sscanf(buffer, "%f,%f", &wirstSpeed,&frequency);
+                if (message_length >= sizeof(buffer))
+                    message_length = sizeof(buffer) - 1;
+
+                uart.read(buffer, message_length);
+                buffer[message_length] = '\0';
+
+                float newWristSpeed;
+                float newReference;
+
+                int parsed = sscanf(buffer, "%f,%f", &newWristSpeed, &newReference);
+
+                if (parsed == 2)
+                {
+                    wirstSpeed = newWristSpeed;
+
+                    // Limit reference to 0-360 degrees
+                    if (newReference >= 0.0f && newReference < 360.0f)
+                    {
+                        HipReference = newReference;
+                    }
+                    else
+                    {
+                        printf("Invalid hip reference: %.2f\n", newReference);
+                    }
+                }
+                else
+                {
+                    printf("UART parse error: %s\n", buffer);
+                }
             }
+
+            // Wrist DC motor control
+            WristDCM.setSpeed(wirstSpeed);
+            // Hip absolute positioning
+            HipPositionControl(HipReference);
+            // UpDown stepper, temporary behavior
+            //Dir2.set(1);Step2.setDuty(50);
         }
     }
 }
@@ -40,12 +72,12 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            if (AbsEnc.update() == ESP_OK)
-            {
-                printf("Hip angle: %.2f deg, Wrist Angle: %.2f deg\n",
-                       AbsEnc.getAngleDegrees(),
-                       getWirstAngle);
-            }
+            printf("Hip Ref: %.2f deg, Hip Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg\n",
+                   HipReference,
+                   HipMeasurement,
+                   HipError,
+                   Hip_u,
+                   getWirstAngle);
         }
     }
 }
@@ -57,13 +89,53 @@ extern "C" void app_main()
     create_tasks();
 }
 
+void HipPositionControl(float Reference)
+{
+    HipReference = Reference;
+    if (AbsEnc.update() == ESP_OK)
+    {
+        HipMeasurement = AbsEnc.getAngleDegrees();
+        HipError = shortestAngleError(HipReference, HipMeasurement);
+
+        if (fabsf(HipError) <= 4.0f)
+        {
+            Step1.setDuty(0);
+            lastHipFrequency = 0;
+        }
+        else
+        {
+            if (HipError > 0.0f)
+                Dir1.set(0);
+            else
+                Dir1.set(1);
+
+            float absError = fabsf(HipError);
+
+            uint32_t hipFrequency = (uint32_t)(8.0f * absError);
+
+            if (hipFrequency > 1000)
+                hipFrequency = 1000;
+
+            if (hipFrequency < 50)
+                hipFrequency = 50;
+
+            if (hipFrequency != lastHipFrequency)
+            {
+                Step1.setFrequency(hipFrequency);
+                lastHipFrequency = hipFrequency;
+            }
+
+            Step1.setDuty(50);
+        }
+    }
+}
+
 void setups()
 {
     //// Elbow DCM setup
     ElbowDCM.setup(ElbowPIN, ElbowPWMCH);
     /// Quadrature encoder setup
     ElbowEncoder.setup(ElbowEncPIN, DEG_PER_EDGE);
-    control.setup(gains, dt_us1 / 1000000.0f); // PID
     // Calibration Limit Switch setup
     Calibration.setup(CalibPin, GPI);
 
@@ -86,6 +158,7 @@ void setups()
     /// Absolute Encoder Setup
     i2c.init();
     AbsEnc.init();
+    HipControl.setup(HipGains, dt_us1 / 1000000.0f); // PID
 
     // Stepper UpDown Setup
     Step2.setup(step_pin2, step2_channel, &stepper2_config);

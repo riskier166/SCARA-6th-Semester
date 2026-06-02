@@ -64,7 +64,22 @@ void SimplePWM::setDuty(float duty_percentage)
 
 void SimplePWM::setFrequency(uint32_t frequency)
 {
+    if (frequency == 0)
+        return;
+
     esp_err_t err = ledc_set_freq(_timer_config->mode, _timer_config->timer, frequency);
+
     if (err != ESP_OK)
-            printf("Failed to set freq: channel=%d, mode=%d,  timer=%d, err=%d\n", _channel, _timer_config->mode,_timer_config->timer, err);
+    {
+        printf("Failed to set freq: channel=%d, mode=%d, timer=%d, freq=%lu, err=%d\n",
+               _channel,
+               _timer_config->mode,
+               _timer_config->timer,
+               frequency,
+               err);
+    }
+    else
+    {
+        _timer_config->frequency = frequency;
+    }
 }
