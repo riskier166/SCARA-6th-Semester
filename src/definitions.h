@@ -19,7 +19,7 @@
 
 /////////////////////// Hip PID stuff///////////////////////////////////
 PID HipControl;
-float HipGains[3] = {10.0f, 2.0f, 2.5f}; // Kp, Ki, Kd
+float HipGains[3] = {8.0f, 1.0f, 0.0f}; // Kp, Ki, Kd
 float HipReference = 0.0f;     
 float HipMeasurement = 0.0f;   
 float HipError = 0.0f;
@@ -33,6 +33,7 @@ const uint32_t HIP_MAX_FREQ = 3000;
 volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
 uint32_t frequency = 1000;
 static uint32_t lastHipFrequency;
+volatile int direction;
 
 enum MODE{
     NOTHING = 0,
@@ -64,7 +65,7 @@ SimpleGPIO Dir1;
 const uint8_t step_pin1 = 18, dir_pin1 = 19,step1_channel = 4;
 TimerConfig stepper1_config{
     .timer = LEDC_TIMER_1,
-    .frequency = 1000, // 1kHz
+    .frequency = 1350, // 1kHz
     .bit_resolution = LEDC_TIMER_10_BIT,
     .mode = LEDC_HIGH_SPEED_MODE};
 // Absolute encoder (12c) stuff
@@ -89,7 +90,7 @@ SimpleGPIO Gripper; const uint8_t GripperPin = 13;
 // while Timer Actuation Stuff
 SimpleTimer timer1;
 bool flag1 = false;
-uint64_t dt_us1 = 1000; // 1 ms = 1000 us
+uint64_t dt_us1 = 10000; // 1 ms = 1000 us
 
 // while Timer Prints Stuff
 SimpleTimer timer2;

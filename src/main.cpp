@@ -9,10 +9,7 @@ void actuation(void *arg)
 {
     lastHipFrequency = 0;
 
-    Step1.setDuty(0);  // Hip stepper initially stopped
-    Step2.setDuty(50); // UpDown stepper if you want it active
-
-    HipPositionControl(AbsEnc.getAngleDegrees());
+    Step1.setDuty(0); // Hip stepper initially stopped
 
     while (1)
     {
@@ -30,14 +27,17 @@ void actuation(void *arg)
 
                 float newWristSpeed;
                 float newReference;
+                int newDirection;
 
-                int parsed = sscanf(buffer, "%f,%f", &newWristSpeed, &newReference);
+                int parsed = sscanf(buffer, "%f,%f,%d", 
+                                    &newWristSpeed, 
+                                    &newReference, 
+                                    &newDirection);
 
-                if (parsed == 2)
+                if (parsed == 3)
                 {
                     wirstSpeed = newWristSpeed;
 
-                    // Limit reference to 0-360 degrees
                     if (newReference >= 0.0f && newReference < 360.0f)
                     {
                         HipReference = newReference;
@@ -45,6 +45,15 @@ void actuation(void *arg)
                     else
                     {
                         printf("Invalid hip reference: %.2f\n", newReference);
+                    }
+
+                    if (newDirection == 0 || newDirection == 1)
+                    {
+                        direction = newDirection;
+                    }
+                    else
+                    {
+                        printf("Invalid direction: %d\n", newDirection);
                     }
                 }
                 else
@@ -55,11 +64,22 @@ void actuation(void *arg)
 
             // Wrist DC motor control
             WristDCM.setSpeed(wirstSpeed);
+
             // Hip absolute positioning
             HipPositionControl(HipReference);
-            // UpDown stepper, temporary behavior
-            //Dir2.set(1);Step2.setDuty(50);
+
+            // UpDown stepper
+            Dir2.set(direction);
+
+            if (UpDown_LS.get() == 1 && direction == 1)
+                Step2.setDuty(0);
+            else if (Calibration.get() == 1 && direction == 0)
+                Step2.setDuty(0);
+            else
+                Step2.setDuty(50);
         }
+
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -97,7 +117,7 @@ void HipPositionControl(float Reference)
         HipMeasurement = AbsEnc.getAngleDegrees();
         HipError = shortestAngleError(HipReference, HipMeasurement);
 
-        if (fabsf(HipError) <= 4.0f)
+        if (fabsf(HipError) <= HIP_TOLERANCE_DEG)
         {
             Step1.setDuty(0);
             lastHipFrequency = 0;
@@ -188,13 +208,13 @@ esp_err_t create_tasks()
                 "Commutation",
                 4096,
                 &ucParameterToPass,
-                1,
+                2,
                 &xHandle);
     xTaskCreate(prints_help,
                 "Current Control",
                 4096,
                 &ucParameterToPass,
-                2,
+                1,
                 &xHandle);
     return ESP_OK;
 }
