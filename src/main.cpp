@@ -15,10 +15,10 @@ void actuation(void *arg)
             WristDCM.setSpeed(wirstSpeed);
             // Activate HIP Stepper
             Step1.setDuty(50);
-            //Step1.setFrequency(frequency);
+            Step1.setFrequency(frequency);
             Dir1.set(1);
             // Activate UpDown Stepper
-            Step2.setDuty(80);
+            Step2.setDuty(50);
             Dir2.set(1);
 
             message_length = uart.available();
