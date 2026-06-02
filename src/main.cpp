@@ -13,15 +13,19 @@ void actuation(void *arg)
         {
             // DCM
             WristDCM.setSpeed(wirstSpeed);
-            // Activate Stepper
-            Step1.setDuty(80);
+            // Activate HIP Stepper
+            Step1.setDuty(50);
+            //Step1.setFrequency(frequency);
             Dir1.set(1);
+            // Activate UpDown Stepper
+            Step2.setDuty(80);
+            Dir2.set(1);
 
             message_length = uart.available();
             if (message_length)
             {
                 uart.read(buffer, message_length); // Echo back
-                sscanf(buffer, "%f", &wirstSpeed);
+                sscanf(buffer, "%f,%f", &wirstSpeed,&frequency);
             }
         }
     }

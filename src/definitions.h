@@ -14,7 +14,7 @@
 #include "AS5600.h"
 #include "SimpleGPIO.h"
 
-#define DEG_PER_EDGE 0.36437
+#define DEG_PER_EDGE 0.33445f
 
 //PID stuff
 PID control;
@@ -25,6 +25,7 @@ float measurement;float error; float u;
 
 // Help variables 
 volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
+float frequency = 1000; // Hip 
 
 enum MODE{
     NOTHING = 0,
