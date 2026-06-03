@@ -33,7 +33,7 @@ const uint32_t HIP_MAX_FREQ = 3000;
 volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
 uint32_t frequency = 1000;
 static uint32_t lastHipFrequency;
-volatile int direction;
+volatile int direction, GripperOnOff;
 
 enum MODE{
     NOTHING = 0,

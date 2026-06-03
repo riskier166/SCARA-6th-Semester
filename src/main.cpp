@@ -1,7 +1,7 @@
 #include <definitions.h>
 
 static void IRAM_ATTR timerISR1(void *arg), timerISR2(void *arg);
-void setups(), HipPositionControl(float reference);
+void setups(), HipPositionControl(float reference), write_message();
 
 esp_err_t create_tasks();
 
@@ -16,51 +16,7 @@ void actuation(void *arg)
         if (timer1.interruptAvailable())
         {
             message_length = uart.available();
-
-            if (message_length > 0)
-            {
-                if (message_length >= sizeof(buffer))
-                    message_length = sizeof(buffer) - 1;
-
-                uart.read(buffer, message_length);
-                buffer[message_length] = '\0';
-
-                float newWristSpeed;
-                float newReference;
-                int newDirection;
-
-                int parsed = sscanf(buffer, "%f,%f,%d", 
-                                    &newWristSpeed, 
-                                    &newReference, 
-                                    &newDirection);
-
-                if (parsed == 3)
-                {
-                    wirstSpeed = newWristSpeed;
-
-                    if (newReference >= 0.0f && newReference < 360.0f)
-                    {
-                        HipReference = newReference;
-                    }
-                    else
-                    {
-                        printf("Invalid hip reference: %.2f\n", newReference);
-                    }
-
-                    if (newDirection == 0 || newDirection == 1)
-                    {
-                        direction = newDirection;
-                    }
-                    else
-                    {
-                        printf("Invalid direction: %d\n", newDirection);
-                    }
-                }
-                else
-                {
-                    printf("UART parse error: %s\n", buffer);
-                }
-            }
+            write_message();
 
             // Wrist DC motor control
             WristDCM.setSpeed(wirstSpeed);
@@ -70,13 +26,15 @@ void actuation(void *arg)
 
             // UpDown stepper
             Dir2.set(direction);
-
             if (UpDown_LS.get() == 1 && direction == 1)
                 Step2.setDuty(0);
             else if (Calibration.get() == 1 && direction == 0)
                 Step2.setDuty(0);
             else
                 Step2.setDuty(50);
+
+            // Gripper activation
+            Gripper.set(GripperOnOff);
         }
 
         vTaskDelay(pdMS_TO_TICKS(1));
@@ -107,6 +65,52 @@ extern "C" void app_main()
     esp_task_wdt_deinit();
     setups();
     create_tasks();
+}
+
+void write_message()
+{
+    if (message_length > 0)
+    {
+        if (message_length >= sizeof(buffer))
+            message_length = sizeof(buffer) - 1;
+
+        uart.read(buffer, message_length);
+        buffer[message_length] = '\0';
+
+        float newWristSpeed;
+        float newReference;
+        int newDirection, newGripperOnOff;
+
+        int parsed = sscanf(buffer, "%f,%f,%d,%d",
+                            &newWristSpeed,
+                            &newReference,
+                            &newDirection,
+                            &newGripperOnOff);
+        if (parsed == 4)
+        {
+            wirstSpeed = newWristSpeed;
+
+            // Hip condition 
+            if (newReference >= 0.0f && newReference < 360.0f)
+                HipReference = newReference;
+            else
+                printf("Invalid hip reference: %.2f\n", newReference);
+
+            // UpDown Condition 
+            if (newDirection == 0 || newDirection == 1)
+                direction = newDirection;
+            else
+                printf("Invalid direction: %d\n", newDirection);
+
+            // Gripper condition 
+            if (newGripperOnOff == 0 || newGripperOnOff == 1)
+                GripperOnOff = newGripperOnOff;
+            else
+                printf("Invalid gripper state: %d\n", newGripperOnOff);
+        }
+        else
+            printf("UART parse error: %s\n", buffer);
+    }
 }
 
 void HipPositionControl(float Reference)
@@ -164,14 +168,6 @@ void setups()
     // Quadrature encoder setup
     WristEncoder.setup(WristEncPIN, DEG_PER_EDGE);
 
-    // While timer Actuation Setup
-    timer1.setup(timerISR1, "ActuationTimer");
-    timer1.startPeriodic(dt_us1);
-
-    // While timer Prints Setup
-    timer2.setup(timerISR2, "PrintsTimer");
-    timer2.startPeriodic(dt_us2);
-
     // Stepper HIP setup
     Step1.setup(step_pin1, step1_channel, &stepper1_config);
     Dir1.setup(dir_pin1, GPO);
@@ -188,6 +184,14 @@ void setups()
 
     // Gripper Setup
     Gripper.setup(GripperPin, GPO);
+
+    // While timer Actuation Setup
+    timer1.setup(timerISR1, "ActuationTimer");
+    timer1.startPeriodic(dt_us1);
+
+    // While timer Prints Setup
+    timer2.setup(timerISR2, "PrintsTimer");
+    timer2.startPeriodic(dt_us2);
 }
 
 static void IRAM_ATTR timerISR1(void *arg)
