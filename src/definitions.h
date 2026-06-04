@@ -117,18 +117,4 @@ float wrapAngle360(float angle)
     return angle;
 }
 
-// Para evitar frecuencias negativas:
-float shortestAngleError(float reference, float measurement)
-{
-    float error = reference - measurement;
-
-    while (error > 180.0f)
-        error -= 360.0f;
-
-    while (error < -180.0f)
-        error += 360.0f;
-
-    return error;
-}
-
 #endif // __DEFINITIONS_H__

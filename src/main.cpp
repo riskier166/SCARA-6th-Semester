@@ -119,7 +119,7 @@ void HipPositionControl(float Reference)
     if (AbsEnc.update() == ESP_OK)
     {
         HipMeasurement = AbsEnc.getAngleDegrees();
-        HipError = shortestAngleError(HipReference, HipMeasurement);
+        HipError = HipReference - HipMeasurement;
 
         if (fabsf(HipError) <= HIP_TOLERANCE_DEG)
         {
@@ -140,8 +140,8 @@ void HipPositionControl(float Reference)
             if (hipFrequency > 1000)
                 hipFrequency = 1000;
 
-            if (hipFrequency < 50)
-                hipFrequency = 50;
+            if (hipFrequency < 40)
+                hipFrequency = 40;
 
             if (hipFrequency != lastHipFrequency)
             {
