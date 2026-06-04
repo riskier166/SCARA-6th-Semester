@@ -1,7 +1,7 @@
 #include <definitions.h>
 
 static void IRAM_ATTR timerISR1(void *arg), timerISR2(void *arg);
-void setups(), HipPositionControl(float reference), write_message();
+void setups(), HipPositionControl(float reference), write_message(), ElbowPositionControl(float reference);
 
 esp_err_t create_tasks();
 
@@ -18,29 +18,9 @@ void actuation(void *arg)
             message_length = uart.available();
             write_message();
             // Elbow DC motor control
-            ElbowMeasurement = ElbowEncoder.getAngle();
-            ElbowError = ElbowReferenceRobot - ElbowMeasurement;
-            Elbow_u = ElbowControl.calc(ElbowError);
-            ElbowDCM.setSpeed(Elbow_u);
-
-            // if (ElbowEncoder.getAngle() > 1220 && ElbowSpeed > 0)
-            // {
-            //     ElbowDCM.setSpeed(0);
-            // }
-            // else if (ElbowEncoder.getAngle() > 1220 && ElbowSpeed < 0)
-            // {
-            //     ElbowDCM.setSpeed(ElbowSpeed);
-            // }
-            // else if (ElbowEncoder.getAngle() < 5 && ElbowSpeed < 0)
-            // {
-            //     ElbowDCM.setSpeed(0);
-            // }
-            // else
-            //     ElbowDCM.setSpeed(ElbowSpeed);
-
+            ElbowPositionControl(ElbowReferenceRobot);
             // Hip absolute positioning
             HipPositionControl(HipReferenceRobot);
-
             // UpDown stepper
             Dir2.set(direction);
             if (Down_LS.get() == 1 && direction == 1)
@@ -49,7 +29,6 @@ void actuation(void *arg)
                 Step2.setDuty(0);
             else
                 Step2.setDuty(50);
-
             // Gripper activation
             Gripper.set(GripperOnOff);
         }
@@ -65,14 +44,9 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            printf("Hip Ref Robot: %.2f deg, Hip Ref Motor: %.2f deg, Hip Motor Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg, DCM angle: %.2f\n",
-                   HipReferenceRobot,
-                   HipReferenceMotor,
-                   HipMeasurement,
-                   HipError,
-                   Hip_u,
-                   getWirstAngle,
-                   ElbowEncoder.getAngle());
+            printf("Hip Ref Robot: %.2f, Hip Ref Motor: %.2f, Hip Motor Angle: %.2f, Hip error: %.2f, Elbow Robot Ref: %.2f, Elbow Motor Ref: %.2f, Elbow angle: %.2f\n, Elbow Error: %.2f",
+                   HipReferenceRobot,     HipReferenceMotor,       HipMeasurement,     HipError,   ElbowReferenceRobot,   ElbowReferenceMotor,    ElbowMeasurement,       ElbowError
+                );
         }
     }
 }
@@ -132,6 +106,17 @@ void write_message()
         else
             printf("UART parse error: %s\n", buffer);
     }
+}
+
+void ElbowPositionControl(float reference)
+{
+    ElbowMeasurement = ElbowEncoder.getAngle();
+    ElbowReferenceMotor = reference * HIP_MOTOR_PER_ROBOT;
+    ElbowError = ElbowReferenceMotor - ElbowMeasurement;
+    Elbow_u = ElbowControl.calc(ElbowError);
+    if (Elbow_u > 70) Elbow_u = 70;
+    else if (Elbow_u < -70) Elbow_u = -70;
+    ElbowDCM.setSpeed(Elbow_u);
 }
 
 void HipPositionControl(float reference_robot_deg)
