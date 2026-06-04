@@ -22,10 +22,16 @@ public:
 
     esp_err_t update();
 
-    float getAngleDegrees();
+    float getAngleDegrees();              // 0° to 360°
     float getAngleRadians();
+
+    float getContinuousAngleDegrees();    // Multi-turn angle
+    float getContinuousAngleRadians();
+
     float getAngularVelocityDegS();
     float getAngularVelocityRadS();
+
+    void resetContinuousAngle(float new_angle_deg = 0.0f);
 
 private:
     I2CBus *_i2c_bus;
@@ -34,7 +40,11 @@ private:
     float _angle_deg;
     float _angle_rad;
 
+    float _continuous_angle_deg;
+    float _continuous_angle_rad;
+
     float _previous_angle_deg;
+
     float _angular_velocity_deg_s;
     float _angular_velocity_rad_s;
 

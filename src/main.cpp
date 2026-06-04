@@ -22,7 +22,7 @@ void actuation(void *arg)
             WristDCM.setSpeed(wirstSpeed);
 
             // Hip absolute positioning
-            HipPositionControl(HipReference);
+            HipPositionControl(HipReferenceRobot);
 
             // UpDown stepper
             Dir2.set(direction);
@@ -36,8 +36,6 @@ void actuation(void *arg)
             // Gripper activation
             Gripper.set(GripperOnOff);
         }
-
-        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -50,8 +48,9 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            printf("Hip Ref: %.2f deg, Hip Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg\n",
-                   HipReference,
+            printf("Hip Ref Robot: %.2f deg, Hip Ref Motor: %.2f deg, Hip Motor Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg\n",
+                   HipReferenceRobot,
+                   HipReferenceMotor,
                    HipMeasurement,
                    HipError,
                    Hip_u,
@@ -90,19 +89,19 @@ void write_message()
         {
             wirstSpeed = newWristSpeed;
 
-            // Hip condition 
-            if (newReference >= 0.0f && newReference < 360.0f)
-                HipReference = newReference;
+            // Hip condition
+            if (newReference >= 0.0f && newReference <= 360.0f)
+                HipReferenceRobot = newReference;
             else
                 printf("Invalid hip reference: %.2f\n", newReference);
 
-            // UpDown Condition 
+            // UpDown Condition
             if (newDirection == 0 || newDirection == 1)
                 direction = newDirection;
             else
                 printf("Invalid direction: %d\n", newDirection);
 
-            // Gripper condition 
+            // Gripper condition
             if (newGripperOnOff == 0 || newGripperOnOff == 1)
                 GripperOnOff = newGripperOnOff;
             else
@@ -113,45 +112,67 @@ void write_message()
     }
 }
 
-void HipPositionControl(float Reference)
+void HipPositionControl(float reference_robot_deg)
 {
-    HipReference = Reference;
-    if (AbsEnc.update() == ESP_OK)
+    esp_err_t err = AbsEnc.update();
+
+    if (err != ESP_OK)
     {
-        HipMeasurement = AbsEnc.getAngleDegrees();
-        HipError = HipReference - HipMeasurement;
-
-        if (fabsf(HipError) <= HIP_TOLERANCE_DEG)
-        {
-            Step1.setDuty(0);
-            lastHipFrequency = 0;
-        }
-        else
-        {
-            if (HipError > 0.0f)
-                Dir1.set(0);
-            else
-                Dir1.set(1);
-
-            float absError = fabsf(HipError);
-
-            uint32_t hipFrequency = (uint32_t)(8.0f * absError);
-
-            if (hipFrequency > 1000)
-                hipFrequency = 1000;
-
-            if (hipFrequency < 40)
-                hipFrequency = 40;
-
-            if (hipFrequency != lastHipFrequency)
-            {
-                Step1.setFrequency(hipFrequency);
-                lastHipFrequency = hipFrequency;
-            }
-
-            Step1.setDuty(50);
-        }
+        Step1.setDuty(0);
+        return;
     }
+
+    // 360° robot = 1224° motor.
+    HipReferenceMotor = reference_robot_deg * HIP_MOTOR_PER_ROBOT;
+
+    // HIP_ENCODER_SIGN fixes the physical direction of the AS5600.
+    HipMeasurement = HIP_ENCODER_SIGN * AbsEnc.getContinuousAngleDegrees();
+
+    // Multi-turn error.
+    HipError = HipReferenceMotor - HipMeasurement;
+
+    float tolerance_motor_deg = HIP_TOLERANCE_DEG * HIP_MOTOR_PER_ROBOT;
+
+    if (fabs(HipError) <= tolerance_motor_deg)
+    {
+        Step1.setDuty(0);
+        lastHipFrequency = 0;
+        Hip_u = 0.0f;
+        return;
+    }
+
+    // Direction depends on error sign.
+    if (HipError > 0.0f)
+    {
+        Dir1.set(1);
+    }
+    else
+    {
+        Dir1.set(0);
+    }
+
+    // For stepper control, use absolute error for speed.
+    Hip_u = HipControl.calc(fabs(HipError));
+
+    frequency = (uint32_t)fabs(Hip_u);
+
+    if (frequency < HIP_MIN_FREQ)
+    {
+        frequency = HIP_MIN_FREQ;
+    }
+
+    if (frequency > HIP_MAX_FREQ)
+    {
+        frequency = HIP_MAX_FREQ;
+    }
+
+    if (frequency != lastHipFrequency)
+    {
+        Step1.setFrequency(frequency);
+        lastHipFrequency = frequency;
+    }
+
+    Step1.setDuty(50);
 }
 
 void setups()
@@ -174,6 +195,7 @@ void setups()
     /// Absolute Encoder Setup
     i2c.init();
     AbsEnc.init();
+    AbsEnc.resetContinuousAngle(0.0f);
     HipControl.setup(HipGains, dt_us1 / 1000000.0f); // PID
 
     // Stepper UpDown Setup

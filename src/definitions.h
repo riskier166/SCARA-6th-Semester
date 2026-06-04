@@ -17,13 +17,20 @@
 
 #define DEG_PER_EDGE 0.33445f
 
+#define HIP_MOTOR_TEETH 20.0f
+#define HIP_ROBOT_TEETH 68.0f
+#define HIP_MOTOR_PER_ROBOT (HIP_ROBOT_TEETH / HIP_MOTOR_TEETH) // 3.4
+#define HIP_ROBOT_PER_MOTOR (HIP_MOTOR_TEETH / HIP_ROBOT_TEETH) // 0.2941176
+#define HIP_ENCODER_SIGN -1.0f
+
 /////////////////////// Hip PID stuff///////////////////////////////////
 PID HipControl;
 float HipGains[3] = {8.0f, 1.0f, 0.0f}; // Kp, Ki, Kd
-float HipReference = 0.0f;     
-float HipMeasurement = 0.0f;   
+float HipReferenceRobot = 0.0f;   // grados reales del robot
+float HipReferenceMotor = 0.0f;   // grados del eje del stepper
+float HipMeasurement = 0.0f;      // grados del eje del stepper, multi-turn
 float HipError = 0.0f;
-float Hip_u = 0.0f;     
+float Hip_u = 0.0f; 
 // Stepper position control limits
 const float HIP_TOLERANCE_DEG = 1.0f; // init: 1
 const uint32_t HIP_MIN_FREQ = 20;  // init: 100

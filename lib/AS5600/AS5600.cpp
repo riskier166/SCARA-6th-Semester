@@ -11,6 +11,8 @@ AS5600::AS5600(I2CBus *i2c_bus)
       _device_handle(nullptr),
       _angle_deg(0.0f),
       _angle_rad(0.0f),
+      _continuous_angle_deg(0.0f),
+      _continuous_angle_rad(0.0f),
       _previous_angle_deg(0.0f),
       _angular_velocity_deg_s(0.0f),
       _angular_velocity_rad_s(0.0f),
@@ -51,6 +53,9 @@ esp_err_t AS5600::init()
 
     _angle_deg = (raw_angle * 360.0f) / 4096.0f;
     _angle_rad = _angle_deg * static_cast<float>(M_PI) / 180.0f;
+
+    _continuous_angle_deg = 0.0f;
+    _continuous_angle_rad = 0.0f;
 
     _previous_angle_deg = _angle_deg;
     _previous_time_us = esp_timer_get_time();
@@ -154,6 +159,9 @@ esp_err_t AS5600::update()
         _previous_angle_deg
     );
 
+    _continuous_angle_deg += delta_angle;
+    _continuous_angle_rad = _continuous_angle_deg * static_cast<float>(M_PI) / 180.0f;
+
     _angular_velocity_deg_s = delta_angle / dt;
     _angular_velocity_rad_s = _angular_velocity_deg_s *
                               static_cast<float>(M_PI) / 180.0f;
@@ -177,6 +185,16 @@ float AS5600::getAngleRadians()
     return _angle_rad;
 }
 
+float AS5600::getContinuousAngleDegrees()
+{
+    return _continuous_angle_deg;
+}
+
+float AS5600::getContinuousAngleRadians()
+{
+    return _continuous_angle_rad;
+}
+
 float AS5600::getAngularVelocityDegS()
 {
     return _angular_velocity_deg_s;
@@ -185,6 +203,22 @@ float AS5600::getAngularVelocityDegS()
 float AS5600::getAngularVelocityRadS()
 {
     return _angular_velocity_rad_s;
+}
+
+void AS5600::resetContinuousAngle(float new_angle_deg)
+{
+    _continuous_angle_deg = new_angle_deg;
+    _continuous_angle_rad = _continuous_angle_deg * static_cast<float>(M_PI) / 180.0f;
+
+    float current_angle_deg = 0.0f;
+
+    if (readAngleDegrees(&current_angle_deg) == ESP_OK)
+    {
+        _angle_deg = current_angle_deg;
+        _angle_rad = _angle_deg * static_cast<float>(M_PI) / 180.0f;
+        _previous_angle_deg = current_angle_deg;
+        _previous_time_us = esp_timer_get_time();
+    }
 }
 
 float AS5600::calculateDeltaAngle(float current_angle, float previous_angle)
