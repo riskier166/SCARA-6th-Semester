@@ -37,7 +37,7 @@ const uint32_t HIP_MIN_FREQ = 18;  // init: 100
 const uint32_t HIP_MAX_FREQ = 3000;
 
 // Help variables 
-volatile float wirstSpeed,getWirstAngle, rawWristAngle; // Wirst
+volatile float ElbowSpeed,getWirstAngle, rawWristAngle; // Wirst
 uint32_t frequency = 1000;
 static uint32_t lastHipFrequency;
 volatile int direction, GripperOnOff;
@@ -51,20 +51,18 @@ enum MODE{
 MODE current_mode;
 
 ///////////////// ELBOW DCM STUFF ////////////////////////////////////
-uint8_t ElbowPIN[2] = {32, 33};uint8_t ElbowPWMCH[2] = {0, 1}; //PWM Channels
+uint8_t ElbowPIN[2] = {25, 26};uint8_t ElbowPWMCH[2] = {0, 1}; //PWM Channels
 HBridge ElbowDCM; //HBridge class instance
 //Quadrature Encoder Stuff
 QuadratureEncoder ElbowEncoder;
-uint8_t ElbowEncPIN[] = {39,36};
-// Calibration Limit Switch Stuff 
-SimpleGPIO Calibration; const uint8_t CalibPin = 27;
+uint8_t ElbowEncPIN[] = {34,35};
 
 ///////////////// WRIST DCM STUFF ////////////////////////////////////
-uint8_t WristPIN[2] = {25, 26};uint8_t WristPWMCH[2] = {2, 3}; //PWM Channels
+uint8_t WristPIN[2] = {32, 33};uint8_t WristPWMCH[2] = {2, 3}; //PWM Channels
 HBridge WristDCM; //HBridge class instance
 //Quadrature Encoder Stuff
 QuadratureEncoder WristEncoder;
-uint8_t WristEncPIN[] = {34,35}; 
+uint8_t WristEncPIN[] = {39,36}; 
 
 ///////////////// STEPPER HIP STUFF //////////////////////////////////
 SimplePWM Step1;
@@ -88,8 +86,9 @@ TimerConfig stepper2_config{
     .frequency = 1000, // 400Hz
     .bit_resolution = LEDC_TIMER_10_BIT,
     .mode = LEDC_HIGH_SPEED_MODE};
-// Limit Up Down stuff
-SimpleGPIO UpDown_LS; const uint8_t UpDownPin = 4;
+// Limit Switches Up Down stuff
+SimpleGPIO Down_LS; const uint8_t DownPin = 4;
+SimpleGPIO Up_LS; const uint8_t UpPin = 27;
 
 ///////////////////// GRIPPER  stuff //////////////////////////////////
 SimpleGPIO Gripper; const uint8_t GripperPin = 13;

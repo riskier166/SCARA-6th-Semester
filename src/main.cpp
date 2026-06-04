@@ -18,17 +18,17 @@ void actuation(void *arg)
             message_length = uart.available();
             write_message();
 
-            // Wrist DC motor control
-            WristDCM.setSpeed(wirstSpeed);
+            // Elbow DC motor control
+            ElbowDCM.setSpeed(ElbowSpeed);
 
             // Hip absolute positioning
             HipPositionControl(HipReferenceRobot);
 
             // UpDown stepper
             Dir2.set(direction);
-            if (UpDown_LS.get() == 1 && direction == 1)
+            if (Down_LS.get() == 1 && direction == 1)
                 Step2.setDuty(0);
-            else if (Calibration.get() == 1 && direction == 0)
+            else if (Up_LS.get() == 1 && direction == 0)
                 Step2.setDuty(0);
             else
                 Step2.setDuty(50);
@@ -76,18 +76,18 @@ void write_message()
         uart.read(buffer, message_length);
         buffer[message_length] = '\0';
 
-        float newWristSpeed;
+        float newElbowSpeed;
         float newReference;
         int newDirection, newGripperOnOff;
 
         int parsed = sscanf(buffer, "%f,%f,%d,%d",
-                            &newWristSpeed,
+                            &newElbowSpeed,
                             &newReference,
                             &newDirection,
                             &newGripperOnOff);
         if (parsed == 4)
         {
-            wirstSpeed = newWristSpeed;
+            ElbowSpeed = newElbowSpeed;
 
             // Hip condition
             if (newReference >= 0.0f && newReference <= 360.0f)
@@ -181,8 +181,6 @@ void setups()
     ElbowDCM.setup(ElbowPIN, ElbowPWMCH);
     /// Quadrature encoder setup
     ElbowEncoder.setup(ElbowEncPIN, DEG_PER_EDGE);
-    // Calibration Limit Switch setup
-    Calibration.setup(CalibPin, GPI);
 
     // Wrist DCM setup
     WristDCM.setup(WristPIN, WristPWMCH);
@@ -201,8 +199,8 @@ void setups()
     // Stepper UpDown Setup
     Step2.setup(step_pin2, step2_channel, &stepper2_config);
     Dir2.setup(dir_pin2, GPO);
-    /// UpDown Limit Switch Setup
-    UpDown_LS.setup(UpDownPin, GPI);
+    Down_LS.setup(DownPin, GPI); //Down Limit Switch Setup
+    Up_LS.setup(UpPin,GPI); //Up Limit Switch Setup 
 
     // Gripper Setup
     Gripper.setup(GripperPin, GPO);
