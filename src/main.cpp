@@ -69,27 +69,27 @@ void write_message()
         buffer[message_length] = '\0';
 
         float newElbowReference;
-        float newReference;
+        float newHipReference;
         int newDirection, newGripperOnOff;
 
         int parsed = sscanf(buffer, "%f,%f,%d,%d",
                             &newElbowReference,
-                            &newReference,
+                            &newHipReference,
                             &newDirection,
                             &newGripperOnOff);
         if (parsed == 4)
         {
             // Elbow Speed condition
-            if (newElbowReference <= 360 || newElbowReference >= 0)
+            if (newElbowReference <= 360 && newElbowReference >= 0)
                 ElbowReferenceRobot = newElbowReference;
             else
                 printf("Invalid Elbow speed: %.2f\n", newElbowReference);
 
             // Hip condition
-            if (newReference >= 0.0f && newReference <= 360.0f)
-                HipReferenceRobot = newReference;
+            if (newHipReference >= 0.0f && newHipReference <= 360.0f)
+                HipReferenceRobot = newHipReference;
             else
-                printf("Invalid hip reference: %.2f\n", newReference);
+                printf("Invalid hip reference: %.2f\n", newHipReference);
 
             // UpDown Condition
             if (newDirection == 0 || newDirection == 1)
