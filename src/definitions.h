@@ -32,8 +32,8 @@ float HipMeasurement = 0.0f;      // grados del eje del stepper, multi-turn
 float HipError = 0.0f;
 float Hip_u = 0.0f; 
 // Stepper position control limits
-const float HIP_TOLERANCE_DEG = 1.0f; // init: 1
-const uint32_t HIP_MIN_FREQ = 20;  // init: 100
+const float HIP_TOLERANCE_DEG = 0.3f; // init: 1
+const uint32_t HIP_MIN_FREQ = 18;  // init: 100
 const uint32_t HIP_MAX_FREQ = 3000;
 
 // Help variables 
