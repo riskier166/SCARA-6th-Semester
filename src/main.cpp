@@ -17,9 +17,26 @@ void actuation(void *arg)
         {
             message_length = uart.available();
             write_message();
-
             // Elbow DC motor control
-            ElbowDCM.setSpeed(ElbowSpeed);
+            ElbowMeasurement = ElbowEncoder.getAngle();
+            ElbowError = ElbowReferenceRobot - ElbowMeasurement;
+            Elbow_u = ElbowControl.calc(ElbowError);
+            ElbowDCM.setSpeed(Elbow_u);
+
+            // if (ElbowEncoder.getAngle() > 1220 && ElbowSpeed > 0)
+            // {
+            //     ElbowDCM.setSpeed(0);
+            // }
+            // else if (ElbowEncoder.getAngle() > 1220 && ElbowSpeed < 0)
+            // {
+            //     ElbowDCM.setSpeed(ElbowSpeed);
+            // }
+            // else if (ElbowEncoder.getAngle() < 5 && ElbowSpeed < 0)
+            // {
+            //     ElbowDCM.setSpeed(0);
+            // }
+            // else
+            //     ElbowDCM.setSpeed(ElbowSpeed);
 
             // Hip absolute positioning
             HipPositionControl(HipReferenceRobot);
@@ -48,13 +65,14 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            printf("Hip Ref Robot: %.2f deg, Hip Ref Motor: %.2f deg, Hip Motor Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg\n",
+            printf("Hip Ref Robot: %.2f deg, Hip Ref Motor: %.2f deg, Hip Motor Angle: %.2f deg, Error: %.2f deg, u: %.2f Hz, Wrist Angle: %.2f deg, DCM angle: %.2f\n",
                    HipReferenceRobot,
                    HipReferenceMotor,
                    HipMeasurement,
                    HipError,
                    Hip_u,
-                   getWirstAngle);
+                   getWirstAngle,
+                   ElbowEncoder.getAngle());
         }
     }
 }
@@ -76,18 +94,22 @@ void write_message()
         uart.read(buffer, message_length);
         buffer[message_length] = '\0';
 
-        float newElbowSpeed;
+        float newElbowReference;
         float newReference;
         int newDirection, newGripperOnOff;
 
         int parsed = sscanf(buffer, "%f,%f,%d,%d",
-                            &newElbowSpeed,
+                            &newElbowReference,
                             &newReference,
                             &newDirection,
                             &newGripperOnOff);
         if (parsed == 4)
         {
-            ElbowSpeed = newElbowSpeed;
+            // Elbow Speed condition
+            if (newElbowReference <= 360 || newElbowReference >= 0)
+                ElbowReferenceRobot = newElbowReference;
+            else
+                printf("Invalid Elbow speed: %.2f\n", newElbowReference);
 
             // Hip condition
             if (newReference >= 0.0f && newReference <= 360.0f)
@@ -125,8 +147,7 @@ void HipPositionControl(float reference_robot_deg)
     // 360° robot = 1224° motor.
     HipReferenceMotor = reference_robot_deg * HIP_MOTOR_PER_ROBOT;
 
-    // HIP_ENCODER_SIGN fixes the physical direction of the AS5600.
-    HipMeasurement = HIP_ENCODER_SIGN * AbsEnc.getContinuousAngleDegrees();
+    HipMeasurement = -1.0 * AbsEnc.getContinuousAngleDegrees(); // Cambia de signo
 
     // Multi-turn error.
     HipError = HipReferenceMotor - HipMeasurement;
@@ -181,6 +202,7 @@ void setups()
     ElbowDCM.setup(ElbowPIN, ElbowPWMCH);
     /// Quadrature encoder setup
     ElbowEncoder.setup(ElbowEncPIN, DEG_PER_EDGE);
+    ElbowControl.setup(ElbowGains, dt_us1 / 1000000.0f); // PID
 
     // Wrist DCM setup
     WristDCM.setup(WristPIN, WristPWMCH);
@@ -199,8 +221,8 @@ void setups()
     // Stepper UpDown Setup
     Step2.setup(step_pin2, step2_channel, &stepper2_config);
     Dir2.setup(dir_pin2, GPO);
-    Down_LS.setup(DownPin, GPI); //Down Limit Switch Setup
-    Up_LS.setup(UpPin,GPI); //Up Limit Switch Setup 
+    Down_LS.setup(DownPin, GPI); // Down Limit Switch Setup
+    Up_LS.setup(UpPin, GPI);     // Up Limit Switch Setup
 
     // Gripper Setup
     Gripper.setup(GripperPin, GPO);

@@ -21,7 +21,6 @@
 #define HIP_ROBOT_TEETH 68.0f
 #define HIP_MOTOR_PER_ROBOT (HIP_ROBOT_TEETH / HIP_MOTOR_TEETH) // 3.4
 #define HIP_ROBOT_PER_MOTOR (HIP_MOTOR_TEETH / HIP_ROBOT_TEETH) // 0.2941176
-#define HIP_ENCODER_SIGN -1.0f
 
 /////////////////////// Hip PID stuff///////////////////////////////////
 PID HipControl;
@@ -35,6 +34,15 @@ float Hip_u = 0.0f;
 const float HIP_TOLERANCE_DEG = 0.3f; // init: 1
 const uint32_t HIP_MIN_FREQ = 18;  // init: 100
 const uint32_t HIP_MAX_FREQ = 3000;
+
+/////////////////////// Elbow PID stuff /////////////////////////////////
+PID ElbowControl;
+float ElbowGains[3] = {1.0f, 0.0f, 0.0f}; // Kp, Ki, Kd
+float ElbowReferenceRobot = 0.0f;   
+float ElbowReferenceMotor = 0.0f;   
+float ElbowMeasurement = 0.0f;      
+float ElbowError = 0.0f;
+float Elbow_u = 0.0f; 
 
 // Help variables 
 volatile float ElbowSpeed,getWirstAngle, rawWristAngle; // Wirst
