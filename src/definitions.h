@@ -91,7 +91,7 @@ SimpleGPIO Dir2;
 const uint8_t step_pin2 = 16, dir_pin2 = 17,step2_channel = 5;
 TimerConfig stepper2_config{
     .timer = LEDC_TIMER_0,
-    .frequency = 1050, // 400Hz
+    .frequency = 1000, // 400Hz
     .bit_resolution = LEDC_TIMER_10_BIT,
     .mode = LEDC_HIGH_SPEED_MODE};
 // Limit Switches Up Down stuff
