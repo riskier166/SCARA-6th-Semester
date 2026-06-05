@@ -44,7 +44,7 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+            printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%d\n",
                    HipReferenceRobot,
                    HipReferenceMotor,
                    HipMeasurement,
@@ -54,7 +54,9 @@ void prints_help(void *arg)
                    ElbowReferenceMotor,
                    ElbowMeasurement,
                    ElbowMeasurement * HIP_ROBOT_PER_MOTOR,
-                   ElbowError);
+                   ElbowError,
+                   Down_LS.get(),
+                   Up_LS.get());
         }
     }
 }
@@ -121,9 +123,37 @@ void ElbowPositionControl(float reference)
     ElbowMeasurement = ElbowEncoder.getAngle();
     ElbowReferenceMotor = reference * HIP_MOTOR_PER_ROBOT;
     ElbowError = ElbowReferenceMotor - ElbowMeasurement;
-    Elbow_u = ElbowControl.calc(ElbowError);
-    if (Elbow_u > 70) Elbow_u = 70;
-    else if (Elbow_u < -70) Elbow_u = -70;
+    const float ELBOW_TOLERANCE_ROBOT_DEG = 2.0f;
+    const float ELBOW_TOLERANCE_MOTOR_DEG = ELBOW_TOLERANCE_ROBOT_DEG * HIP_MOTOR_PER_ROBOT;
+    const float ELBOW_MIN_DUTY = 33.0f;
+    const float ELBOW_MAX_DUTY = 80.0f;
+    if (fabs(ElbowError) <= ELBOW_TOLERANCE_MOTOR_DEG)
+    {
+        Elbow_u = 0.0f;
+        ElbowDCM.setSpeed(0.0f);
+        return;
+    }
+
+    // PID / control de posición
+    float pid_output = ElbowControl.calc(ElbowError);
+    float duty_abs = fabs(pid_output);
+    if (duty_abs < ELBOW_MIN_DUTY)
+    {
+        duty_abs = ELBOW_MIN_DUTY;
+    }
+    if (duty_abs > ELBOW_MAX_DUTY)
+    {
+        duty_abs = ELBOW_MAX_DUTY;
+    }
+    if (ElbowError > 0.0f)
+    {
+        Elbow_u = duty_abs;
+    }
+    else
+    {
+        Elbow_u = -duty_abs;
+    }
+
     ElbowDCM.setSpeed(Elbow_u);
 }
 

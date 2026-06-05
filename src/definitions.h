@@ -37,7 +37,7 @@ const uint32_t HIP_MAX_FREQ = 1500;
 
 /////////////////////// Elbow PID stuff /////////////////////////////////
 PID ElbowControl;
-float ElbowGains[3] = {0.5f, 0.0f, 0.2f}; // Kp, Ki, Kd
+float ElbowGains[3] = {2.0f, 1.1f, 1.0f}; // Kp, Ki, Kd
 float ElbowReferenceRobot = 0.0f;   
 float ElbowReferenceMotor = 0.0f;   
 float ElbowMeasurement = 0.0f;      
