@@ -44,8 +44,8 @@ void prints_help(void *arg)
             rawWristAngle = WristEncoder.getAngle();
             getWirstAngle = wrapAngle360(rawWristAngle);
 
-            printf("Hip Ref Robot: %.2f, Hip Ref Motor: %.2f, Hip Motor Angle: %.2f, Hip error: %.2f, Elbow Robot Ref: %.2f, Elbow Motor Ref: %.2f, Elbow angle: %.2f\n, Elbow Error: %.2f",
-                   HipReferenceRobot,     HipReferenceMotor,       HipMeasurement,     HipError,   ElbowReferenceRobot,   ElbowReferenceMotor,    ElbowMeasurement,       ElbowError
+            printf("Hip Ref Robot: %.2f, Hip Ref Motor: %.2f, Hip Motor Angle: %.2f, Hip Robot Angle: %.2f, Hip error: %.2f, Elbow Robot Ref: %.2f, Elbow Motor Ref: %.2f, Elbow Motor angle: %.2f\n, Elbow Robot angle: %.2f, Elbow Error: %.2f\n",
+                   HipReferenceRobot,     HipReferenceMotor,  HipMeasurement,  HipMeasurement*HIP_ROBOT_PER_MOTOR,HipError,  ElbowReferenceRobot,   ElbowReferenceMotor,    ElbowMeasurement,  ElbowMeasurement*HIP_ROBOT_PER_MOTOR,     ElbowError
                 );
         }
     }

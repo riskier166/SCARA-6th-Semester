@@ -24,7 +24,7 @@
 
 /////////////////////// Hip PID stuff///////////////////////////////////
 PID HipControl;
-float HipGains[3] = {1.6f, 0.45f, 0.5f}; // Kp, Ki, Kd
+float HipGains[3] = {1.4f, 0.4f, 0.5f}; // Kp, Ki, Kd
 float HipReferenceRobot = 0.0f;   // grados reales del robot
 float HipReferenceMotor = 0.0f;   // grados del eje del stepper
 float HipMeasurement = 0.0f;      // grados del eje del stepper, multi-turn
@@ -33,7 +33,7 @@ float Hip_u = 0.0f;
 // Stepper position control limits
 const float HIP_TOLERANCE_DEG = 0.3f; // init: 1
 const uint32_t HIP_MIN_FREQ = 18;  // init: 100
-const uint32_t HIP_MAX_FREQ = 2000;
+const uint32_t HIP_MAX_FREQ = 1500;
 
 /////////////////////// Elbow PID stuff /////////////////////////////////
 PID ElbowControl;
@@ -48,7 +48,7 @@ float Elbow_u = 0.0f;
 volatile float ElbowSpeed,getWirstAngle, rawWristAngle; // Wirst
 uint32_t frequency = 1000;
 static uint32_t lastHipFrequency;
-volatile int direction, GripperOnOff;
+volatile int direction = 1, GripperOnOff;
 
 enum MODE{
     NOTHING = 0,
@@ -91,7 +91,7 @@ SimpleGPIO Dir2;
 const uint8_t step_pin2 = 16, dir_pin2 = 17,step2_channel = 5;
 TimerConfig stepper2_config{
     .timer = LEDC_TIMER_0,
-    .frequency = 1300, // 400Hz
+    .frequency = 1050, // 400Hz
     .bit_resolution = LEDC_TIMER_10_BIT,
     .mode = LEDC_HIGH_SPEED_MODE};
 // Limit Switches Up Down stuff
